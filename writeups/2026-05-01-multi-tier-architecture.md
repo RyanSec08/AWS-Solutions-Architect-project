@@ -27,7 +27,8 @@ You see it on every Solutions Architect exam, every system design interview ques
 But until you build one and prove the traffic actually flows the way you intended, it's just a diagram.
 This lab was about closing that gap — going from "I can describe a three-tier architecture" to "I built one and verified its security boundaries with hands-on tests."
 
-[ YOUR VOICE: A sentence or two about what motivated you specifically. Maybe what hiring managers ask about that you couldn't have answered well a week ago, or the moment you realized the previous writeups were leading to this. Keep it short — one or two honest sentences. ]
+I'd seen three-tier diagrams in study material plenty of times, but I'd never actually built one.
+The previous writeups felt like puzzle pieces I'd been collecting, and this lab was about putting them together into something that actually works.
 
 ## The architecture
 
@@ -383,15 +384,11 @@ But the foundation — the network and security group architecture — is sound,
 
 ## What I learned
 
-[ YOUR VOICE: This is the section that matters most. Some prompts to choose from:
-
-- The "tier is enforced by configuration, not inherent to the instance" insight — when did that click for you?
-- The negative tests (proving things are correctly blocked) — did that change how you think about security?
-- The shape of debugging across multiple tiers (PHP error → app tier check → DB tier check → security groups) — what was that like?
-- The moment when the full chain (web → app → DB) actually worked — what did that feel like?
-- Anything specific that surprised you, frustrated you, or that you'd struggle to explain a week ago and could now explain in 30 seconds.
-
-Three or four sentences in your own voice. Real thoughts > polished prose. ]
+The most satisfying moment of this whole portfolio so far was watching the full chain work end-to-end.
+What I'd been studying as abstract concepts in the certs suddenly felt tangible — there's a real difference between reading about three-tier architecture and proving the data actually flows through it.
+The negative tests were the other big shift.
+A week ago I would have thought "security = block the bad stuff."
+Now I get that proving something is correctly BLOCKED is just as important as proving the right things work.
 
 ## What's next
 
