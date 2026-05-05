@@ -25,7 +25,7 @@ which is friction nobody actually wants to deal with,
 which means in practice the password never gets rotated.
 None of that is acceptable in a real environment.
 
-![Hardcoded password in PHP](screenshots/01-hardcoded-password-before.png)
+![Hardcoded password in PHP](screenshots-iam-secrets/01-hardcoded-password-before.png)
 
 ## What I built
 
@@ -40,7 +40,7 @@ Four moving parts working together:
 
 I created a secret called `bryan/db-credentials` with key/value pairs for host, username, password, and dbname.
 
-![Secret created](screenshots/02-secret-created.png)
+![Secret created](screenshots-iam-secrets/02-secret-created.png)
 
 ## Step 2 — IAM role with least-privilege policy
 
@@ -52,12 +52,12 @@ No other actions.
 
 The trust policy lets EC2 assume the role:
 
-![IAM role trust policy](screenshots/03-iam-role-trust-policy.png)
-![Policy review](screenshots/04-policy-review.png)
+![IAM role trust policy](screenshots-iam-secrets/03-iam-role-trust-policy.png)
+![Policy review](screenshots-iam-secrets/04-policy-review.png)
 
 Then I attached the role to the `bryan-app-tier` EC2 instance.
 
-![Role attached to EC2](screenshots/05-iam-role-attached-to-ec2.png)
+![Role attached to EC2](screenshots-iam-secrets/05-iam-role-attached-to-ec2.png)
 
 The reason to use a role and not access keys is straightforward:
 access keys sitting on a server are a long-lived credential that can be stolen.
@@ -73,8 +73,8 @@ A VPC endpoint solves this by creating a private "side door" inside the VPC that
 After creating the endpoint with private DNS enabled,
 an `nslookup` from the app tier confirmed DNS now points at a private IP (`10.0.2.104`):
 
-![VPC endpoint available](screenshots/06-vpc-endpoint-available.png)
-![Private DNS resolving](screenshots/07-private-dns-resolving.png)
+![VPC endpoint available](screenshots-iam-secrets/06-vpc-endpoint-available.png)
+![Private DNS resolving](screenshots-iam-secrets/07-private-dns-resolving.png)
 
 ## Step 4 — The security group gotcha
 
@@ -105,7 +105,7 @@ so the rule effectively says "members of this group can talk to each other on 44
 
 After saving the rule, the CLI returned the secret in a couple of seconds:
 
-![Secret fetched from app tier](screenshots/08-secret-fetched-from-app-tier.png)
+![Secret fetched from app tier](screenshots-iam-secrets/08-secret-fetched-from-app-tier.png)
 
 Two things stuck with me from this section.
 First, hangs and refusals look the same to a human — "the thing isn't working" —
@@ -157,7 +157,7 @@ so the rest of the file is completely untouched.
 
 After saving, `curl http://localhost/api/` returned the same user data as before:
 
-![Curl output after Secrets Manager](screenshots/09-curl-output-after-secrets-manager.png)
+![Curl output after Secrets Manager](screenshots-iam-secrets/09-curl-output-after-secrets-manager.png)
 
 Same output, same behavior, no credentials anywhere in the source code.
 The PHP started, called the AWS CLI, the CLI authenticated using the IAM role,
