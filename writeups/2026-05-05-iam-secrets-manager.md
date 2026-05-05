@@ -12,7 +12,7 @@ The app tier had this in `index.php`:
 ```php
 $db_host = '10.0.3.148';
 $db_user = 'app_user';
-$db_pass = 'AppPassword123!';
+$db_pass = <REDACTED>
 $db_name = 'demo_db';
 ```
 
