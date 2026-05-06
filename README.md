@@ -1,3 +1,4 @@
+
 # AWS-Solutions-Architect-project
 
 Hands-on AWS Solutions Architect project with documentation, architecture diagrams, and real examples.
@@ -30,8 +31,9 @@ I'm Bryan — I got into tech because of AI and want to build a career at the in
 | 2026-04-28 | [Building a Bastion Host in AWS: SSH, Defense in Depth, and the Jump Box Pattern](writeups/2026-04-28-ec2-bastion-host.md) | EC2, bastion host, SSH, security groups, defense in depth, least privilege |
 | 2026-04-29 | [Adding Outbound-Only Internet to a Private Subnet: NAT Gateways and the Asymmetric Connectivity Pattern](writeups/2026-04-29-nat-gateway.md) | NAT Gateway, NAT/PAT, route tables, asymmetric connectivity, attack surface reduction |
 | 2026-05-01 | [Building a Three-Tier Architecture in AWS: Web, App, and Database Tiers with Strict Traffic Isolation](writeups/2026-05-01-multi-tier-architecture.md) | Multi-tier architecture, security group chaining, defense in depth, Apache, PHP, MySQL |
+| 2026-05-05 | [Replacing Hardcoded Credentials with IAM Roles + Secrets Manager](writeups/2026-05-05-iam-secrets-manager.md) | IAM roles, Secrets Manager, VPC endpoints, security groups, least privilege |
 
-*More writeups coming as I work through multi-tier architectures, AWS-managed databases, and a full home lab project.*
+*More writeups coming as I round out the architecture track with ALB, Auto Scaling, and RDS, then pivot toward security-focused topics like VPC Flow Logs, CloudTrail, and GuardDuty.*
 
 ## Contact
 
