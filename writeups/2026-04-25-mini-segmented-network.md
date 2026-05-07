@@ -1,7 +1,7 @@
 # Building a Mini Segmented Network in AWS: VPC, Subnets, and Routing from Scratch
 
 **Date:** April 25, 2026
-**Topics covered:** VPC design, CIDR notation, subnetting, route tables, Internet Gateways, network segmentation, defense in depth
+**Topics covered:** VPC design, CIDR notation, subnetting, route tables, Internet Gateways, network segmentation, default-deny network design
 
 ## What this writeup is
 
@@ -15,7 +15,7 @@ My current cert stack is AWS Solutions Architect Associate, CompTIA Security+, a
 Most tutorials treat these as separate fields, but they're not.
 Every step of building cloud infrastructure touches all three.
 This project was my way of forcing the overlap to be visible: every decision I made connected back to a Network+ or Security+ concept I'd studied.
-I felt this was the best way to learn, actual hands on experience instead of just reading a textbook.
+I felt this was the best way to learn — actual hands-on experience instead of just reading a textbook.
 
 
 ## The architecture
@@ -50,7 +50,7 @@ The naming is convention — what makes a subnet truly public or private is the 
 
 Before building anything, I audited the account for existing resources.
 This is a real-world cloud habit: forgotten resources are the #1 source of surprise AWS bills.
-"Zombie resources" account for an estimated 30% of wasted cloud spend at most companies.
+Industry estimates put wasted cloud spend at roughly 25–35% across most companies, with "zombie resources" — orphaned volumes, forgotten instances, idle load balancers — being the biggest contributor.
 
 What I checked:
 - **EC2 instances:** None
@@ -76,7 +76,9 @@ The "/16" means the first 16 bits of the address are locked as the network porti
 **Why use a private range?**
 Public IPs are routable on the internet — anyone could potentially reach them.
 Private IPs are only reachable within the VPC (or via gateways we explicitly configure).
-This is the foundation of network segmentation: an attacker cannot directly send packets to a private IP from the public internet, no matter how badly your firewalls are configured.
+This is the foundation of network segmentation: an attacker on the public internet cannot route packets directly to a private IP — those addresses simply aren't reachable from outside the VPC.
+That's a property of IP routing itself, not your firewall configuration.
+(Once something inside the VPC is compromised, of course, internal firewall rules become what protects everything else — but that's a separate problem.)
 
 ### 2. Create the subnets
 
@@ -103,7 +105,7 @@ For a learning lab, simplicity wins. For a real workload, availability would.
 An Internet Gateway (IGW) is a virtual router that connects a VPC to the public internet.
 Without it, no instance in the VPC — public or private — can reach anything outside.
 
-![Internet Gateway bryan-lab-igw attached to Bryan-lab-vpc](./Screenshots/03-internet%20gateway%20attached.png)
+![Internet Gateway bryan-lab-igw attached to Bryan-lab-vpc](./Screenshots/03-internet-gateway-attached.png)
 
 **Network+ angle:** The IGW is functionally similar to the WAN port on a home router.
 It's the boundary between an internal network and the wider internet.
@@ -147,7 +149,8 @@ The final step is the **subnet association** — explicitly opting `bryan-lab-pu
 
 **Sec+ angle:** Notice that we explicitly opt the public subnet *in*.
 We don't grant internet access by default.
-This is **defense in depth**: security decisions are explicit and visible in configuration, not silent assumptions.
+This is **default-deny / explicit-allow** — the network-layer version of least privilege.
+Security decisions are explicit and visible in configuration, not silent assumptions.
 The private subnet stays associated with the main route table (which has no internet route), so it remains genuinely private.
 Public vs. private is determined by routing — not by names or magical AWS attributes.
 
@@ -167,10 +170,23 @@ That's the next writeup.
 
 - **Private IP ranges (RFC 1918) are the foundation of network segmentation.** They make many of AWS's security guarantees possible at the IP layer, before any firewall rule is evaluated.
 - **"Public" and "private" subnets are routing decisions, not subnet attributes.** A subnet is public because its route table sends `0.0.0.0/0` traffic to an Internet Gateway. Remove that route and the subnet becomes private. This is critical to internalize — it shifts how you think about AWS networking.
-- **Explicit-opt-in beats default-allow.** The public route table only applies to subnets that are explicitly associated with it. Defense in depth shows up everywhere in good cloud design — from IAM permissions to network access to billing visibility.
+- **Explicit-opt-in beats default-allow.** The public route table only applies to subnets that are explicitly associated with it. This least-privilege pattern shows up everywhere in good cloud design — from IAM permissions to network access to billing visibility.
 - **Production trade-offs are visible even in a lab.** Single-AZ for simplicity vs. multi-AZ for high availability. AdministratorAccess for personal accounts vs. scoped permissions in production. Documenting these trade-offs is just as important as the implementation itself.
 
 Although in my mind I understood how things were supposed to work, it felt great to actually create the internet gateway and attach it to the public subnet.  Nothing like seeing it live!
+
+## Why this matters for security engineering
+
+Network segmentation is the security control that makes everything downstream cheaper.
+If a public-facing instance is compromised, segmentation is what limits the blast radius — the attacker can't pivot to private resources without first defeating additional controls.
+Cloud Security Engineers spend a lot of time auditing exactly this:
+
+- Are public subnets actually only the ones that need to be public?
+- Do private subnets have any unintended path to the internet — a misrouted IGW, a misconfigured NAT, a leaked SSH key?
+- Does the routing configuration match the architecture diagram, or has drift introduced silent paths?
+
+Building this from scratch — instead of inheriting AWS's default VPC — forces every routing decision to be visible and intentional.
+That's the same posture a Security Engineer brings to reviewing someone else's account: nothing is allowed by default; every connection has to justify itself.
 
 ## What's next
 
