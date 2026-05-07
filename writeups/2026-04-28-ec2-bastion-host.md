@@ -15,7 +15,7 @@ That single design choice — "you can't talk to the sensitive server directly" 
 
 ## Why I built this
 
-In writeup #2, I built the network — VPC, subnets, route tables, Internet Gateway.
+In Writeup #2, I built the network — VPC, subnets, route tables, Internet Gateway.
 But a network with no servers in it is just plumbing.
 This lab was about putting actual workloads inside that network and proving the segmentation does what it's supposed to do.
 
@@ -23,7 +23,9 @@ I also wanted to physically experience the bastion host pattern, not just read a
 The Security+ exam talks about "jump boxes" and "defense in depth" in the abstract.
 SSHing through one server to reach another, and then watching `curl` time out from the private server because it has no internet route, makes those concepts stop being abstract.
 
-It was so nice to see that everything worked.  There's a sense of safety knowing there is no way to reach the app server other than through the bastion host.
+It was so nice to see that everything worked.
+There's a sense of safety knowing there is no way to reach the app server other than through the bastion host.
+
 ## The architecture
 
 ```
@@ -125,7 +127,7 @@ Here's what actually happens when I want to reach the app server from my laptop.
 From my laptop, I SSH into the bastion using its Elastic IP and my private key:
 
 ```bash
-ssh -i "C:\Users\beasy\OneDrive\Desktop\bryan-lab-key.pem" -A ec2-user@98.87.60.175
+ssh -i "C:\Users\<username>\.ssh\bryan-lab-key.pem" -A ec2-user@98.87.60.175
 ```
 
 That `-A` flag is **agent forwarding**.
@@ -133,7 +135,19 @@ It tells my laptop to keep the SSH key available for the next hop, so the bastio
 Copying the private key onto the bastion would be bad practice — if the bastion ever got compromised, the attacker would have the key to everything.
 Agent forwarding keeps the private key on my laptop where it belongs.
 
-Once I'm on the bastion, I SSH to the app server using its private IP:
+**Production note on agent forwarding:**
+Agent forwarding is convenient for learning, but it has a known security trade-off — if the bastion is ever compromised, an attacker on the bastion can use your forwarded SSH agent to authenticate to other servers as you for as long as your local agent is running.
+Modern bastion patterns prefer SSH's **ProxyJump** feature (`-J`) instead, which tunnels the connection through the bastion without ever exposing your agent to it.
+The equivalent ProxyJump command would be:
+
+```bash
+ssh -J ec2-user@98.87.60.175 -i "C:\Users\<username>\.ssh\bryan-lab-key.pem" ec2-user@10.0.2.132
+```
+
+The bastion sees encrypted traffic but never gets a chance to use your key.
+For this lab I stuck with agent forwarding because the lesson it teaches about key management is foundational — but in any production environment I worked on, ProxyJump would be the default.
+
+Once I'm on the bastion (using the agent-forwarding approach), I SSH to the app server using its private IP:
 
 ```bash
 ssh ec2-user@10.0.2.132
@@ -144,6 +158,9 @@ No second key file.
 The forwarded SSH agent handles the authentication transparently.
 
 ![Full SSH chain — laptop to bastion to app server](screenshots-bastion-host/06-ssh-chain.png)
+
+*Note: the path in this screenshot (`OneDrive\Desktop\bryan-lab-key.pem`) reflects my original setup.
+I later caught that this meant my private key had been silently syncing to Microsoft's cloud — see the "What I learned" section below for the full story and the fix.*
 
 ## Step 5 — Proving the private server is actually isolated
 
@@ -214,16 +231,58 @@ In a real environment, this matters because:
 - Monitoring tools don't lose the host
 - Most importantly, your team's `~/.ssh/config` doesn't need to be updated every Monday
 
-A small note on cost: Elastic IPs are free **while attached to a running instance**.
-If you reserve one and don't attach it, AWS charges you a small hourly fee — that's their way of discouraging hoarding scarce IPv4 addresses.
+**A note on cost:**
+As of February 1, 2024, AWS charges **$0.005/hour (~$3.60/month)** for *all* public IPv4 addresses, including Elastic IPs that are attached to running instances.
+The same charge applies to detached EIPs and ones associated with stopped instances.
+The free tier includes 750 hours/month of public IPv4 address usage for the first 12 months of a new AWS account, but past that, every public IPv4 address costs money regardless of how it's being used.
+
+The pricing change was AWS's response to global IPv4 address exhaustion — IPv4 addresses are a genuinely scarce public resource, and AWS is encouraging more efficient use (and pushing customers toward IPv6 where possible).
+For a lab with one bastion and no other public IPs, the cost is small enough not to matter.
+For a production environment with dozens of EIPs, it's the kind of thing that adds up to a real line item.
 
 ## What I learned
 
-The first time the SSH chain worked, it felt powerful — like I was doing real cloud work instead of just reading about it. The thing that actually clicked for me was how SSH and key authentication work in practice. I'd seen public/private keys explained for Security+, but using them across two hops with agent forwarding made the concept finally feel real. The one snag was my home IP changing partway through and having to update the bastion's security group — small thing, but it made me appreciate why production environments don't rely on IP allowlists for human access.
+The first time the SSH chain worked, it felt powerful — like I was doing real cloud work instead of just reading about it.
+The thing that actually clicked for me was how SSH and key authentication work in practice.
+I'd seen public/private keys explained for Security+, but using them across two hops with agent forwarding made the concept finally feel real.
+The one snag was my home IP changing partway through and having to update the bastion's security group — small thing, but it made me appreciate why production environments don't rely on IP allowlists for human access.
 
+**A real lesson learned during the writeup review:**
+Long after publishing this lab, I caught a subtle but real security issue with my own setup.
+When I'd originally generated `bryan-lab-key.pem`, I saved it to my Windows Desktop without realizing that Microsoft's **OneDrive Folder Backup** feature was silently syncing my Desktop to the cloud.
+My private SSH key had been sitting on Microsoft's servers for weeks.
+I never explicitly chose to put it there — OneDrive's default backup behavior captured it the moment I saved the file.
 
+The fix was straightforward once I noticed:
 
+1. Move the key out of any OneDrive-synced folder. The conventional location on Windows is `C:\Users\<username>\.ssh\` — a folder OneDrive doesn't backup by default.
+2. Delete every cloud copy: from the OneDrive web Recycle bin (which keeps deleted files for 30 days otherwise), and from the local Windows Recycle Bin.
+3. Disable OneDrive Folder Backup for any folders I don't actively want auto-synced (Settings → Sync and backup → Manage backup → uncheck Desktop, Documents, Pictures).
 
+The lesson is broader than just this key: **on a Windows machine with OneDrive Folder Backup enabled, the Desktop is the cloud.**
+Anything saved there gets uploaded automatically, with no notification.
+That's fine for documents and photos.
+It is not fine for SSH keys, API tokens, or any other security-sensitive file.
+Going forward, the rule I follow is: credentials only live in `.ssh\`, `.aws\`, or another folder explicitly outside of any sync engine's scope.
+
+## Why this matters for security engineering
+
+Bastion hosts are an auditable choke point for human access — a single place to log who connected, when, and what they did.
+Cloud Security Engineers spend a lot of time hardening and monitoring exactly this layer:
+
+- SSH session logging and recording
+- Just-in-time bastion access (no permanent SSH keys sitting on developer laptops)
+- Tying access to identity, not IPs (since IPs change and IP allowlists don't scale)
+- Where private SSH keys actually live on disk — and what's silently syncing them
+
+The lab in this writeup is the *foundational* version of the pattern.
+The production-grade modern alternative on AWS is **Systems Manager Session Manager** — it provides bastion-equivalent shell access to instances *without* exposing SSH to the internet at all.
+No bastion host with a public IP, no SSH keys to manage, no port 22 open anywhere.
+Authentication is via IAM, every session is logged in CloudTrail, and access can be granted or revoked through IAM policies in real time.
+
+Building this SSH-based bastion first is the right way to learn the pattern — it makes the underlying concepts (key authentication, security group chaining, defense in depth) tangible.
+But in any account I worked on professionally, my goal would be to migrate human access from SSH to Session Manager whenever possible.
+Same architectural intent, dramatically smaller attack surface.
 
 ## What's next
 
