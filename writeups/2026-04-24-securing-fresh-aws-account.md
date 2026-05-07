@@ -47,8 +47,9 @@ Once I was back in, I did the following in order:
 
 ### 1. Removed the broken passkey
 
-Deleted the inaccessible passkey from the root user's security credentials. An orphan MFA device isn't just useless — it's a liability, 
-because it's still technically a factor an attacker could try to target.
+Deleted the inaccessible passkey from the root user's security credentials. Keeping dead MFA devices around is bad hygiene — 
+they clutter the security review of an account and can mask real issues during an audit. Anyone reviewing the account should see only 
+active, intentional credentials.
 
 ### 2. Set up Google Authenticator for the root user
 
@@ -62,11 +63,11 @@ Everything else should go through IAM users with scoped permissions.
 
 Steps taken:
 - Created a user group called `Admins` with the `AdministratorAccess` policy attached
-- Created an IAM user and added them to the `Admins` group
+- Created an IAM user and added it to the `Admins` group
 - Enabled MFA on the IAM user separately (MFA does not transfer between users)
 - Saved the IAM sign-in URL (different from root's sign-in URL) for future logins
 
-I'm so relieved knowing I have an administrator account that doesn't have root access.
+It's reassuring to have a daily-driver account that lacks root's account-level powers.
 
 ### 4. Enabled IAM access to billing information
 
@@ -75,8 +76,9 @@ greeted me with three "Access denied" errors on the cost widgets. Fixing this re
 
 > Account → IAM user and role access to Billing information → Activate IAM Access
 
-This is a good example of AWS's defense-in-depth philosophy: even "admin" permissions don't unlock everything. 
-Billing is gated separately on purpose.
+This is a good example of AWS's separation-of-concerns design: some account-level functions are deliberately gated to the root user 
+regardless of IAM permissions. Billing access is one of them — the toggle has to be flipped by root explicitly before any IAM user 
+can see it, even an admin.
 
 ## Takeaways
 
@@ -88,6 +90,21 @@ Billing is gated separately on purpose.
   worth building now.
 - **AdministratorAccess on a personal account is a deliberate simplification.** In a real production environment, you'd scope permissions
   much more tightly. I'm flagging that trade-off here so future me doesn't forget.
+
+## Why this matters for security engineering
+
+Identity hygiene — root usage, MFA enforcement, IAM least privilege, recovery path testing — is the first thing a Cloud Security Engineer 
+audits in any AWS account.
+Getting these wrong is the most common cause of "account compromised" tickets in cloud organizations.
+The recovery ordeal I went through was a mild version of what a Security Engineer walks a non-technical user through during an actual incident.
+
+The lessons here translate directly to the roles I'm targeting:
+
+- **Root user activity is a flag in any AWS audit.** CloudTrail logs that show root API calls are typically escalated to security teams 
+  immediately, because there's almost no legitimate reason for root to be making day-to-day changes.
+- **MFA on every privileged identity is non-negotiable** in compliance frameworks like SOC 2 and ISO 27001. The fact that AWS doesn't 
+  enforce MFA on root by default is one of the more common audit findings on freshly created accounts.
+- **Recovery paths are part of the security posture.** A strong auth setup that locks legitimate users out is just downtime in fancier dress.
 
 ## What's next
 
