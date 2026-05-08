@@ -57,7 +57,7 @@ The app server has no door to the internet at all — it can only be reached fro
 
 ## Step 1 — Launching the bastion host in the public subnet
 
-I launched a t3.micro Amazon Linux instance into `bryan-lab-public-subnet` and named it `bryan-bastion-host`.
+I launched a `t3.micro` Amazon Linux instance into `bryan-lab-public-subnet` and named it `bryan-bastion-host`.
 
 Two key configuration choices at launch:
 
@@ -72,7 +72,7 @@ The security group attached to it (`bastion-sg`) only allows inbound SSH (port 2
 
 ## Step 2 — Launching the app server in the private subnet
 
-The app server is `bryan-app-server`, also a `t3.micro`, but launched into, but launched into `bryan-lab-private-subnet`.
+The app server is `bryan-app-server`, also a `t3.micro`, but launched into `bryan-lab-private-subnet`.
 
 The critical differences from the bastion:
 
