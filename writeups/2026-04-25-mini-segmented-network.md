@@ -50,7 +50,7 @@ The naming is convention — what makes a subnet truly public or private is the 
 
 Before building anything, I audited the account for existing resources.
 This is a real-world cloud habit: forgotten resources are the #1 source of surprise AWS bills.
-Industry estimates put wasted cloud spend at roughly 25–35% across most companies, with "zombie resources" — orphaned volumes, forgotten instances, idle load balancers — being the biggest contributor.
+Industry surveys consistently estimate that 25–35% of cloud spend is wasted across most companies, with "zombie resources" — orphaned volumes, forgotten instances, idle load balancers — being the biggest contributor.
 
 What I checked:
 - **EC2 instances:** None
@@ -67,7 +67,7 @@ Confirmed clean slate before proceeding.
 
 Created a custom VPC with the CIDR block `10.0.0.0/16`.
 
-![Bryan-lab-vpc shown in the VPC console](Screenshots/01-vpc-created.png)
+![Bryan-lab-vpc shown in the VPC console](screenshots-mini-segmented-network/01-vpc-created.png)
 
 **Network+ angle:** `10.0.0.0/16` is a private IP range from RFC 1918.
 It covers IP addresses from `10.0.0.0` to `10.0.255.255` — that's 65,536 total IP addresses (2^16).
@@ -89,7 +89,7 @@ Carved the VPC's `/16` range into two `/24` subnets:
 | bryan-lab-public-subnet | 10.0.1.0/24 | 256 (251 usable in AWS) | Hosts that need internet access |
 | bryan-lab-private-subnet | 10.0.2.0/24 | 256 (251 usable in AWS) | Hosts that should be isolated |
 
-![Public and private subnets in Bryan-lab-vpc](Screenshots/02-subnets.png)
+![Public and private subnets in Bryan-lab-vpc](screenshots-mini-segmented-network/02-subnets.png)
 
 **AWS reserves 5 IPs per subnet** for its own use (network address, VPC router, DNS, broadcast, future use).
 So a `/24` gives 256 addresses on paper but 251 usable in practice.
@@ -105,11 +105,11 @@ For a learning lab, simplicity wins. For a real workload, availability would.
 An Internet Gateway (IGW) is a virtual router that connects a VPC to the public internet.
 Without it, no instance in the VPC — public or private — can reach anything outside.
 
-![Internet Gateway bryan-lab-igw attached to Bryan-lab-vpc](./Screenshots/03-internet-gateway-attached.png)
+![Internet Gateway bryan-lab-igw attached to Bryan-lab-vpc](screenshots-mini-segmented-network/03-internet-gateway-attached.png)
 
 **Network+ angle:** The IGW is functionally similar to the WAN port on a home router.
 It's the boundary between an internal network and the wider internet.
-Like a home router, it's stateless about *content* — it doesn't filter what passes through.
+Like a home router, it doesn't perform content inspection — it routes packets based on IP, not what's inside them.
 Filtering is a separate concern, handled by security groups and NACLs.
 
 I created the IGW (`bryan-lab-igw`), then attached it to Bryan-lab-vpc.
@@ -129,11 +129,11 @@ Created `bryan-lab-public-rt` and added the route:
 | Destination | Target |
 |---|---|
 | 10.0.0.0/16 | local (auto-created) |
-| 0.0.0.0/0 | igw-076bfe78c564a7182 |
+| 0.0.0.0/0 | igw-xxxxxxxxxxxxxxxxx |
 
-![Public route table with local and 0.0.0.0/0 routes](Screenshots/04-route-tables-list.png)
+![Public route table with local and 0.0.0.0/0 routes](screenshots-mini-segmented-network/04-route-tables-list.png)
 
-![Routes tab showing 10.0.0.0/16 → local and 0.0.0.0/0 → IGW](Screenshots/05-route-table-routes.png)
+![Routes tab showing 10.0.0.0/16 → local and 0.0.0.0/0 → IGW](screenshots-mini-segmented-network/05-route-table-routes.png)
 **Network+ angle:** `0.0.0.0/0` is the **default route** — it matches every possible IP address.
 Routing tables evaluate routes "most specific first."
 Traffic destined for `10.0.x.x` matches the `10.0.0.0/16` rule (which is more specific) and stays internal.
@@ -145,10 +145,10 @@ This is identical to how routing works on physical routers.
 The route table now has the right routes, but no subnet is using it yet.
 The final step is the **subnet association** — explicitly opting `bryan-lab-public-subnet` in.
 
-![Public subnet associated with bryan-lab-public-rt](./Screenshots/06-subnet-associations.png)
+![Public subnet associated with bryan-lab-public-rt](screenshots-mini-segmented-network/06-subnet-associations.png)
 
-**Sec+ angle:** Notice that we explicitly opt the public subnet *in*.
-We don't grant internet access by default.
+**Sec+ angle:** Notice that I explicitly opt the public subnet *in*.
+Internet access isn't granted by default.
 This is **default-deny / explicit-allow** — the network-layer version of least privilege.
 Security decisions are explicit and visible in configuration, not silent assumptions.
 The private subnet stays associated with the main route table (which has no internet route), so it remains genuinely private.
