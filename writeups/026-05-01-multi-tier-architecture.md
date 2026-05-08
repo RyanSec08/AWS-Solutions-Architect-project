@@ -86,7 +86,7 @@ Three security groups, each enforcing one tier's access policy:
 ## The "tier" insight that took me a while to grasp
 
 A "tier" is not a property of the EC2 instance.
-A `t2.micro` running on AWS doesn't know whether it's a "web tier" or a "database tier."
+A `t3.micro` running on AWS doesn't know whether it's a "web tier" or a "database tier."
 It's just a Linux box.
 
 What makes one server a web tier and another a database tier is the combination of:
@@ -149,7 +149,7 @@ That's defense in depth at the network layer, with each tier trusting only the s
 
 ## Step 3 — The web tier
 
-A `t2.micro` in the public subnet, with a public IP, running Apache and serving a custom HTML page.
+A `t3.micro` in the public subnet, with a public IP, running Apache and serving a custom HTML page.
 Apache install was straightforward:
 
 ```bash
@@ -168,7 +168,7 @@ That's proof of the public-facing entry point: internet → IGW → web-sg (port
 
 ## Step 4 — The app tier
 
-A `t2.micro` in the private subnet with NO public IP, running Apache + PHP + the PHP-MySQL driver.
+A `t3.micro` in the private subnet with NO public IP, running Apache + PHP + the PHP-MySQL driver.
 
 The install required temporary outbound internet for `yum install`, which the app tier has via the NAT Gateway from [writeup #4](2026-04-29-nat-gateway.md).
 
@@ -186,11 +186,13 @@ It reaches across the VPC to the DB tier's private IP (`10.0.3.148`) on port 330
 
 ## Step 5 — The database tier
 
-A `t2.micro` in the new database subnet with NO public IP, running MySQL 8.
+A `t3.micro` in the new database subnet with NO public IP, running MySQL 8.
 
 This was the trickiest install of the three.
 Amazon Linux 2023 ships with MariaDB by default, not MySQL.
-I had to add the official MySQL community repo first, then install:
+I had to add the official MySQL community repo first, then install.
+
+The community RPM lives on `dev.mysql.com` (public internet), so this step required outbound internet for the DB tier — which the DB tier's route table doesn't allow by default. I temporarily added a NAT Gateway route to `bryan-lab-db-rt` for this install, and removed it in Step 10 once MySQL was running.
 
 ```bash
 sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
@@ -381,6 +383,22 @@ A truly hardened production version of this architecture would also include:
 I haven't done these yet.
 They're each their own substantial topic, and they'll be the subjects of upcoming writeups.
 But the foundation — the network and security group architecture — is sound, and everything else layers on top of this.
+
+## Why this matters for security engineering
+
+Network segmentation is one of the most-audited controls in any cloud environment.
+A Cloud Security Engineer doesn't just look at architecture diagrams — they actively verify that the segmentation holds in practice.
+The negative tests in this writeup (web tier blocked from DB, internet blocked from app tier, DB has zero egress) are the same kind of tests a security engineer runs during an audit.
+A diagram that says "the web tier can't reach the database" is a hypothesis. The packet-level test that proves it is the evidence.
+
+A few things security teams typically build on top of this foundation:
+
+- **Lateral movement detection.** Most successful breaches don't end at the initial compromise. They involve an attacker pivoting from one workload to another. The "minimize blast radius" framing in the Security+ section above is the *defensive* version. The corresponding *detection* version is monitoring east-west traffic for unusual patterns — VPC Flow Logs again, plus services like GuardDuty that flag pivoting attempts.
+- **Drift detection.** This architecture is correct *today*. The harder question is whether it stays correct. A misconfigured security group that adds `0.0.0.0/0` to `db-sg` at 2 AM during a hotfix would silently break the entire model. AWS Config rules and Security Hub findings flag this kind of configuration drift in production.
+- **Zero-trust evolution.** This three-tier architecture is the *traditional* perimeter-based approach: trust based on network location ("the app tier is private, therefore it's trusted"). Modern security engineering pushes toward zero-trust — every request is authenticated and authorized regardless of network position. Service mesh tools (Istio, AWS App Mesh), workload identity (IRSA, SPIFFE), mTLS between services. The network-layer foundation here doesn't go away — it becomes one of multiple defenses, not the only one.
+
+Building this segmented architecture first is the right starting point.
+But in any production environment I worked on, the goal would be to layer identity and authentication on top of network position, not rely on network position alone.
 
 ## What I learned
 
