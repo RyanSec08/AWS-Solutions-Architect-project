@@ -24,9 +24,13 @@ When I tried to log in, AWS asked me to authenticate with a passkey I didn't rec
 but my phone reported "no passkey found." I'd apparently set up a passkey 9 months ago that either never synced to my phone properly or 
 was wiped when I changed devices or browser data.
 
-**What I learned:** Passkeys are convenient, but they can quietly disappear if the device they're stored on gets reset, replaced, 
-or signs out of its syncing account. For something as critical as AWS root access, an **authenticator app (like Google Authenticator) is a 
-more reliable choice** because the codes are generated locally on a device I control and can back up.
+**What I learned:** Passkeys are convenient, but they can quietly disappear if the device they're stored on gets reset, replaced, or signs out of its syncing account. 
+For something as critical as AWS root access, I switched to an authenticator app (Google Authenticator) — not because it's *more secure*, but because the recovery story is more transparent.
+
+Worth being precise about the trade-off: passkeys are theoretically more secure than TOTP — they're phishing-resistant and can't be cloned. 
+The reason I went with TOTP isn't security strength; it's recovery transparency. 
+I save the secret key, I can restore on any new device, no cloud-sync magic required. 
+For higher-stakes accounts — production environments, financial, work AWS — a FIDO2 hardware key like a YubiKey is the gold standard: phishing-resistant like a passkey, but bound to physical hardware I control.
 
 Let's just say I'll be putting the secret key in a safe place from now on!
 
@@ -53,8 +57,9 @@ active, intentional credentials.
 
 ### 2. Set up Google Authenticator for the root user
 
-Added a virtual MFA device using Google Authenticator. This time, I saved the secret key (the text string alongside the QR code) in a secure 
-location so that if I lose my phone, I can restore the MFA on a new device without another recovery ordeal.
+Added a virtual MFA device using Google Authenticator. This time, I saved the secret key — the text string alongside the QR code — in a password manager. 
+That secret is functionally a password (anyone with it can generate valid codes), so the right home is an encrypted vault, not a plain text file or a sticky note. 
+If I lose my phone, I can restore the MFA on a new device without another recovery ordeal.
 
 ### 3. Created an IAM user for day-to-day work
 
@@ -102,9 +107,12 @@ The lessons here translate directly to the roles I'm targeting:
 
 - **Root user activity is a flag in any AWS audit.** CloudTrail logs that show root API calls are typically escalated to security teams 
   immediately, because there's almost no legitimate reason for root to be making day-to-day changes.
-- **MFA on every privileged identity is non-negotiable** in compliance frameworks like SOC 2 and ISO 27001. The fact that AWS doesn't 
-  enforce MFA on root by default is one of the more common audit findings on freshly created accounts.
+- **MFA on every privileged identity is non-negotiable** in compliance frameworks like SOC 2 and ISO 27001.
 - **Recovery paths are part of the security posture.** A strong auth setup that locks legitimate users out is just downtime in fancier dress.
+
+A note on how MFA audit findings have evolved: AWS now enforces MFA on root users across all account types (rolled out from May 2024 through June 2025), so "no MFA on root" has largely disappeared as an audit finding on accounts created since. 
+What's replaced it is the failure mode I just described: MFA enabled, but stored on a device the user can no longer access, with stale recovery factors. 
+The auth method passes the audit checkbox; the recovery posture doesn't.
 
 ## What's next
 
