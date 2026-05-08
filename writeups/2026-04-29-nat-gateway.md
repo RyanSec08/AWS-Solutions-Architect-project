@@ -189,7 +189,7 @@ The connection worked.
 
 When the app server sends a packet to Amazon's package server, here's the journey:
 
-1. **App server (10.0.2.132)** wants to talk to `amazonlinux-2-repos.us-east-1.amazonaws.com`
+1. **App server (10.0.2.132)** wants to talk to the **Amazon Linux package repository** on the public internet
 2. The packet hits the **private route table**.
 Destination doesn't match `10.0.0.0/16`, so it falls through to the `0.0.0.0/0 → NAT Gateway` rule
 3. The packet reaches the **NAT Gateway's private IP (10.0.1.134)**
@@ -284,14 +284,34 @@ I also released the Elastic IP that was attached to the NAT Gateway.
 Unattached EIPs cost ~$0.005/hour even when nothing is using them.
 Another small but real charge that sneaks up on people.
 
+## Why this matters for security engineering
+
+Egress traffic — what private workloads call **out** to — is one of the highest-signal data sources a Cloud Security Engineer monitors.
+A compromised server doesn't usually announce itself with inbound noise.
+It betrays itself in what it tries to call.
+A workload that suddenly starts beaconing to a strange IP, a database server fetching data it's never fetched before, a build server pulling from an unfamiliar package mirror — those are exfiltration and command-and-control patterns.
+
+The NAT Gateway in this lab is the chokepoint where all that egress traffic gets translated and audited.
+A few things security teams typically build on top of this foundation:
+
+- **VPC Flow Logs** capture every packet that traverses the NAT Gateway, with source/destination IPs, ports, and bytes transferred.
+That's the audit trail that makes egress detection possible.
+- **VPC endpoints (PrivateLink)** are the production-grade answer for AWS-internal traffic.
+If a private workload only needs to call S3, DynamoDB, or Secrets Manager, you don't need a NAT Gateway at all — VPC endpoints route that traffic across AWS's internal network without ever touching the public internet.
+That's both cheaper *and* more secure (smaller egress surface).
+- **Egress filtering** at the network layer (AWS Network Firewall, third-party proxies) lets you allowlist exactly which external endpoints workloads can reach.
+A database server that only ever needs to talk to Amazon Linux package mirrors should not be able to reach `pastebin.com`.
+
+Building this NAT-only setup first is the right starting point.
+But in any production environment I worked on, the goal would be to minimize what flows through the NAT Gateway by pushing AWS-service traffic through VPC endpoints, and to put guardrails on whatever egress remains.
+
 ## What I learned
 
 This was the first piece of AWS infrastructure I built that actually costs real money to keep running.
 That changed how I worked through it.
 I was more deliberate, more focused, and I made sure to delete it as soon as I had what I needed.
 The actual concept finally clicked when I started thinking of internet access as "who started the conversation" instead of just on/off.
-The front door analogy did it for me.
-And realizing my own home router does this exact thing every single day made the whole NAT Gateway feel a lot less abstract.
+The home router parallel — that I've been using NAT every day without thinking about it — made it feel a lot less abstract.
 
 ## What's next
 
