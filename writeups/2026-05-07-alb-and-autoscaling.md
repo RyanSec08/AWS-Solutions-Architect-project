@@ -1,6 +1,23 @@
 # From Single Instance to Self-Healing Fleet: Adding an ALB and Auto Scaling Group
 
-In Writeup #6, I fixed the most embarrassing security flaw in my web tier —
+**Date:** May 7, 2026
+**Topics covered:** Application Load Balancer, Auto Scaling Group, AMIs, launch templates, target groups, multi-AZ resilience, security group chaining, health checks, self-healing infrastructure, connection draining
+
+## What this writeup is
+
+This writeup transitions my web tier from a single EC2 instance to a self-healing fleet behind an Application Load Balancer.
+I put an ALB in front of the web tier,
+locked down direct internet access so the only way in is through the ALB,
+turned the existing instance into a reusable AMI,
+and replaced "the web tier" with an Auto Scaling Group of identical instances
+distributed across two Availability Zones, configured to self-heal when an instance fails.
+
+To prove it actually works, I terminated an instance on purpose
+and watched the system recover with no manual intervention.
+
+## Why I built this
+
+In [Writeup #6](2026-05-05-iam-secrets-manager.md), I fixed the most embarrassing security flaw in my web tier —
 a hardcoded database password sitting in PHP source — by moving the credential
 into AWS Secrets Manager and giving the EC2 instance an IAM role with permission to fetch it.
 
@@ -16,16 +33,6 @@ If the underlying hardware failed, the site went down for hours while I rebuilt 
 
 A single instance is fine for a homelab.
 It's not a real architecture.
-
-This writeup is the transition.
-I put an Application Load Balancer in front of the web tier,
-locked down direct internet access so the only way in is through the ALB,
-turned the existing instance into a reusable AMI,
-and replaced "the web tier" with an Auto Scaling Group of identical instances
-distributed across two Availability Zones, configured to self-heal when an instance fails.
-
-To prove it actually works, I terminated an instance on purpose
-and watched the system recover with no manual intervention.
 
 ---
 
@@ -70,7 +77,7 @@ I'll walk through it as one continuous arc.
 
 ---
 
-# Section 1: Building the Application Load Balancer
+## Section 1: Building the Application Load Balancer
 
 ## Step 1 — The "before" baseline
 
@@ -292,7 +299,7 @@ or a service that's actually rejecting you.
 
 ---
 
-# Section 2: Building the Auto Scaling Group
+## Section 2: Building the Auto Scaling Group
 
 The ALB has a load balancer with one backend behind it,
 which means it isn't actually doing much load balancing yet.
@@ -327,7 +334,7 @@ Result: `ami-02d83c5ada26e03f6` (named `bryan-web-tier-ami-v1`).
 ![AMI available](screenshots-alb-asg/16-ami-available.png)
 
 A small footnote on cost: AWS automatically creates an EBS snapshot to back the AMI.
-That snapshot lives in EC2 → Snapshots and costs roughly four cents per month for an 8 GB volume.
+That snapshot lives in EC2 → Snapshots and runs cents per month — $0.05/GB-month, and only used blocks are billed (not empty space), so a typical lab snapshot lands around 15–40 cents.
 Trivial, but worth knowing exists for cleanup later.
 
 ---
@@ -569,7 +576,7 @@ That's the architecture I set out to build.
 
 ---
 
-# The "instance as cattle, not pets" insight
+## The "instance as cattle, not pets" insight
 
 This was the foundational mental shift I had to make to actually understand what an ASG is for.
 
@@ -594,7 +601,7 @@ it forces every operational change to be reproducible.
 
 ---
 
-# Honest tradeoffs
+## Honest tradeoffs
 
 A few things I deliberately didn't do, and why:
 
@@ -642,7 +649,7 @@ This is the most obvious next-iteration improvement.
 
 ---
 
-# Security framing
+## Why this matters for security engineering
 
 This writeup sits inside a Cloud Security Engineer career pivot,
 so I want to call out the security properties of what was built, not just the availability story.
@@ -688,7 +695,23 @@ and a brute-force resource exhaustion attack against one AZ can be absorbed by t
 
 ---
 
-# What's next
+## What I learned
+
+The cattle-vs-pets framing finally clicked when I terminated that first instance on purpose.
+I'd read about the idea for years — *treat servers as interchangeable, not unique* — but actually killing one and watching the architecture replace it without me doing anything was a different kind of understanding.
+The instance I'd been configuring wasn't precious anymore.
+The AMI and launch template were.
+
+The brief timeout during the self-healing test was the other big shift.
+I expected the failover to be instant.
+It wasn't — there was a ~30 second window where the ALB still tried to send traffic to the dead instance before its health checks caught up.
+Being honest about that gap, rather than glossing over it, is the kind of thinking I want to bring to production work.
+The architecture is *self-healing*, not *zero-downtime*.
+Those are different properties, and conflating them sets up the wrong expectations.
+
+---
+
+## What's next
 
 The architecture work for this writeup is now complete.
 Coming up:
@@ -710,5 +733,4 @@ worked examples of what a real incident would look like in the logs.
 
 ---
 
-*Repo:* [github.com/RyanSec08/AWS-Solutions-Architect-project](https://github.com/RyanSec08/AWS-Solutions-Architect-project)
-*Previous writeup:* [2026-05-05-iam-secrets-manager.md](2026-05-05-iam-secrets-manager.md)
+*This is the seventh writeup in my AWS Solutions Architect portfolio. Earlier writeups covered [securing a fresh AWS account](2026-04-24-securing-fresh-aws-account.md), [building the VPC and subnets](2026-04-25-mini-segmented-network.md), [the bastion host pattern](2026-04-28-ec2-bastion-host.md), [adding outbound-only internet via NAT Gateway](2026-04-29-nat-gateway.md), [building a three-tier architecture](2026-05-01-multi-tier-architecture.md), and [replacing hardcoded credentials with IAM roles + Secrets Manager](2026-05-05-iam-secrets-manager.md).*
