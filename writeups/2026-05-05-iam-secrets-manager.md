@@ -1,9 +1,30 @@
-# Replacing Hardcoded Credentials with IAM Roles + Secrets Manager
+# Replacing Hardcoded Credentials with IAM Roles + Secrets Manager: Runtime Credential Fetch on AWS
 
-This lab was about removing a hardcoded database password from a PHP file
+**Date:** May 5, 2026
+**Topics covered:** IAM roles, AWS Secrets Manager, VPC interface endpoints, EC2 instance metadata service, security group self-referencing rules, AWS CLI integration, credential management, least privilege
+
+## What this writeup is
+
+This is a hands-on walkthrough of removing a hardcoded database password from a PHP file
 and having the application fetch it at runtime from AWS Secrets Manager instead.
 The end behavior of the app is identical;
 the security posture is completely different.
+
+Static credentials in source code are one of the most common root causes of cloud breaches.
+The fix is the modern AWS pattern: IAM roles for instance identity, Secrets Manager as the credential store,
+and a VPC endpoint to keep the entire credential fetch on AWS's private network.
+
+## Why I built this
+
+In [my previous writeup](2026-05-01-multi-tier-architecture.md) I called out the hardcoded MySQL password
+in the app tier's PHP as a real security issue I'd left unfinished.
+This is the lab that fixes it.
+
+It also introduces a pattern that shows up in basically every production AWS environment —
+EC2 instances using IAM roles to authenticate to AWS services without ever holding access keys.
+Once you understand this pattern, you start seeing it everywhere:
+ECS tasks pulling secrets, Lambda functions reading from S3, EKS pods writing to DynamoDB.
+The mechanism is the same: short-lived credentials granted via role assumption, scoped tightly, never stored.
 
 ## The starting state
 
@@ -165,6 +186,24 @@ sent an HTTPS request to Secrets Manager via the VPC endpoint (no public interne
 got back the JSON, parsed it, and used the values to connect to MySQL.
 That entire flow is invisible to anyone reading the application code.
 
+## Why this matters for security engineering
+
+Credential management is one of the most-audited areas in any cloud security review.
+Hardcoded passwords, long-lived access keys, and credentials checked into Git are responsible for a disproportionate share of cloud breaches —
+and they're exactly the kind of thing a security engineer is hunting for during a code or configuration audit.
+The pattern in this writeup — fetch credentials at runtime via IAM role, never store them on disk, never commit them anywhere — is the modern baseline.
+
+A few things security teams typically build on top of this foundation:
+
+- **Secrets rotation.** Secrets Manager supports automatic rotation — generating a new password on a schedule, updating it in the database, and storing the new version. The application keeps fetching the current value and never knows a rotation happened. In production, every secret has a rotation policy.
+- **CloudTrail auditing on `GetSecretValue`.** Every call to fetch a secret is logged: who, when, from which IP. A spike in `GetSecretValue` calls from an unexpected role or an unfamiliar IP is the kind of signal SIEM tools and GuardDuty pick up on as anomalous credential access.
+- **VPC endpoint policies.** The endpoint can carry its own policy that restricts which secrets can be fetched through it, on top of the IAM role's policy. Belt-and-suspenders for high-value secrets.
+- **Service control policies (SCPs).** At the AWS Organizations level, SCPs can enforce "no IAM user can have programmatic access keys" across every account — making the role-based pattern the only option, not just the recommended one.
+- **The AWS SDK over `shell_exec`.** In production, the PHP would use the AWS SDK for PHP directly rather than shelling out to the CLI. The SDK does the same instance-metadata authentication transparently, but without the CLI as a runtime dependency and without the shell-out cost on every API request. For learning, `shell_exec` is fine — it makes the credential flow explicit. For production, the SDK is the right call.
+
+Building this hardcoded-secret-replacement first is the right starting point.
+But in any production environment I worked on, the goal would be to make this the *baseline*, then layer rotation, auditing, and SCP-level enforcement on top so it can't drift back to bad habits.
+
 ## What I learned
 
 - **Hangs vs. refusals are different problems.** A hang almost always means a firewall is silently dropping packets. A refusal means the destination is reachable but actively saying no. Different symptoms, different fixes.
@@ -180,3 +219,7 @@ CloudTrail to audit who's calling `GetSecretValue`,
 GuardDuty for anomaly detection on top of it all.
 A few more pure-AWS labs first (ALB, Auto Scaling, RDS) to round out the architecture track,
 then full pivot into the security side.
+
+---
+
+*This is the sixth writeup in my AWS Solutions Architect portfolio. Earlier writeups covered [securing a fresh AWS account](2026-04-24-securing-fresh-aws-account.md), [building the VPC and subnets](2026-04-25-mini-segmented-network.md), [the bastion host pattern](2026-04-28-ec2-bastion-host.md), [adding outbound-only internet via NAT Gateway](2026-04-29-nat-gateway.md), and [building a three-tier architecture](2026-05-01-multi-tier-architecture.md).*
