@@ -120,11 +120,6 @@ they couldn't reach the database from there.
 
 ![rds-sg with two scoped inbound rules](screenshots-rds-migration/03-rds-sg-rules.png)
 
-> **Note on the screenshots:** I initially configured `rds-sg` with only the `app-server-sg` rule,
-> because at first I was thinking purely about the application path.
-> When I went to do the admin work (schema setup) I realized I had no way in,
-> and added the `bastion-sg` rule. The "after" state is captured in screenshot 05.
-
 ---
 
 ## Step 3 — Launch the RDS instance
@@ -193,12 +188,11 @@ Now I needed to actually put data into the database.
 This is the **admin plane** work: schema creation, seed data, user creation, grants.
 None of this should ever happen from the application tier.
 
-First I added the `bastion-sg` rule to `rds-sg`
-(which I should have done in step 2 — flagged above):
+With the `bastion-sg` rule on `rds-sg` in place, I had a path from the bastion to the database:
 
-![rds-sg after bastion-sg was added](screenshots-rds-migration/05-rds-sg-bastion-added.png)
+![rds-sg showing the bastion path](screenshots-rds-migration/05-rds-sg-bastion-added.png)
 
-Then from the bastion, I connected to the RDS endpoint using the MariaDB client
+From the bastion, I connected to the RDS endpoint using the MariaDB client
 (which speaks the MySQL wire protocol):
 
 ```bash
