@@ -32,8 +32,9 @@ I'm Bryan — I got into tech because of AI and want to build a career at the in
 | 2026-04-29 | [Adding Outbound-Only Internet to a Private Subnet: NAT Gateways and the Asymmetric Connectivity Pattern](writeups/2026-04-29-nat-gateway.md) | NAT Gateway, NAT/PAT, route tables, asymmetric connectivity, attack surface reduction |
 | 2026-05-01 | [Building a Three-Tier Architecture in AWS: Web, App, and Database Tiers with Strict Traffic Isolation](writeups/2026-05-01-multi-tier-architecture.md) | Multi-tier architecture, security group chaining, defense in depth, Apache, PHP, MySQL |
 | 2026-05-05 | [Replacing Hardcoded Credentials with IAM Roles + Secrets Manager](writeups/2026-05-05-iam-secrets-manager.md) | IAM roles, Secrets Manager, VPC endpoints, security groups, least privilege |
+| 2026-05-11 | [Migrating from Self-Managed MySQL to Amazon RDS: Managed Databases, Least Privilege, and the VPC Endpoint Story](writeups/2026-05-11-rds-migration.md) | RDS, managed databases, Secrets Manager, VPC endpoints, security groups, least privilege, credential rotation |
 
-*More writeups coming as I round out the architecture track with ALB, Auto Scaling, and RDS, then pivot toward security-focused topics like VPC Flow Logs, CloudTrail, and GuardDuty.*
+*More writeups coming as I move into the security trilogy — CloudTrail, VPC Flow Logs, and GuardDuty — followed by an AWS Config and Security Hub capstone.*
 
 ## Contact
 
