@@ -14,7 +14,7 @@ I just hadn't been looking.
 This writeup is about finding that data,
 understanding what's in each record (and what each field means for a security audit),
 and then building a proper **multi-region trail** —
-the durable, queryable, GuardDuty-ready version that everything else in the AWS security stack expects to exist.
+the durable, queryable, integration-ready version that the rest of the AWS security stack expects to exist.
 
 Along the way I'll walk through the operational difference between Event History and a Trail,
 and demonstrate how to read these logs the way a real security engineer does —
@@ -372,7 +372,7 @@ this S3 bucket is the source of truth.
 CloudWatch Logs is a convenient projection for live querying,
 but it can lag, and people set retention to expire it.
 The S3 trail is the durable, tamper-evident, forever record.
-When I build GuardDuty in writeup #11, this is the bucket it'll consume.
+The standardized layout above is what GuardDuty, Security Hub, Athena, and every downstream tool already know how to read.
 
 ---
 
@@ -586,7 +586,7 @@ Everything else is background.
 - **Service-linked roles are not just an annoyance; they're a security feature.**
   By creating distinct identities for each AWS service that acts on your behalf,
   AWS makes the difference between "user did X" and "service did X" visible in the audit log.
-  Without this design, every `DeleteNetworkInterface` would look like a human action and tonnes of false positives would follow.
+  Without this design, every `DeleteNetworkInterface` would look like a human action and a flood of false positives would follow.
 
 - **`Never expire` is a default, not a recommendation.**
   Both CloudWatch log groups and S3 buckets default to keeping data forever.
